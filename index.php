@@ -4,8 +4,9 @@
 
     $src_url = $wechatBot->getQRcodeUrl();
     echo "<img src=\"$src_url\"></img>";//生成二维码图片
-
-    echo "loading……";
+    ob_flush();
+    flush();
+    
 
 class wechatBot
 {
@@ -70,7 +71,7 @@ class wechatBot
         }
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
         curl_setopt($ch, CURLOPT_HEADER, 0);
-        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        //curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
         curl_setopt($ch, CURLOPT_TIMEOUT, $timeOut);
         $result = curl_exec($ch);
