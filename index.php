@@ -1,4 +1,5 @@
 <?php
+	ini_set('max_execution_time', 3000);
 	echo "<pre>";
     $wechatBot = new wechatBot();
     $wechatBot->run();
