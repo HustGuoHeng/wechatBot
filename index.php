@@ -18,10 +18,15 @@ class wechatBot
     protected $loginSuccessCoreKey = [];
     //用于初始化以及获取信息的参数
     protected $baseRequest = [];
+    
+	//初始化之后获得的信息
+	protected $baseInfo;
+
     /**
      * 	主体代码
      */
     public function run() {
+    	echo "微信网页自定义登陆程序<br>";
     	self::getUuid(); // 获取$uuid
     	//获取二维码
 	    $src_url = self::getQRcodeUrl();
@@ -36,6 +41,8 @@ class wechatBot
     	self::getCoreKey();
     	//网页微信初始化
     	self::webWeixinInit();
+    	//获取用户常用联系人信息
+    	self::webWeixinGetContact();
 
     }
     /**
@@ -91,6 +98,7 @@ class wechatBot
      */
     public function getCoreKey() {
     	$result = self::curlRequest($this->redirectUrl);
+    	
     	$xml = simplexml_load_string($result);
     	$arr = [];
     	foreach ($xml as $key => $value) {
@@ -112,8 +120,29 @@ class wechatBot
 
     	$params = array('BaseRequest' => $this->baseRequest);
     	$params = json_encode($params);
-    	$result = self::curlRequest($url, true, $params);
-    	print_r($result);
+    	while (@!$this->baseInfo->SKey) {
+    		$result = self::curlRequest($url, true, $params);
+    		$this->baseInfo = json_decode($result);
+    		foreach ($this->baseInfo as $key => $value) {
+    			echo "<br>$key";
+    		}
+    		echo "<br>";
+    		var_dump($this->baseInfo->SKey);
+    	}
+
+    	echo "<br>";
+    	echo "webWeixin初始化成功！获取信息中……";
+    }
+    //获取常用联系人信息
+    public function webWeixinGetContact() {
+    	
+    	$url = "https://$this->hostUrl/cgi-bin/mmwebwx-bin/webwxgetcontact?pass_ticket=".$this->loginSuccessCoreKey['pass_ticket'] . "&r=1467445194420&seq=0&skey=" . (string)$this->baseInfo->SKey;
+
+    	echo "<br>" .$url;
+    	$result = self::curlRequest($url);
+    	$result = json_decode($result);
+    	echo "<br>";
+    	print_r($result->BaseResponse);
     }
     /*
     * curl获取网页请求
@@ -135,5 +164,12 @@ class wechatBot
         curl_close($ch);
 
         return $result;
+    }
+    //利用time生成13位长度的数字
+    public function getR() {
+    	return time();
+    }
+    public function getLR() {
+    	return time().'128';
     }
 }
