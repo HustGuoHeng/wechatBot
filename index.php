@@ -6,8 +6,10 @@
 
 class wechatBot
 {
+
+
     public $uuid = false;
-    
+    	
     //用于waitForLogin
     protected $waitForCheck = false; //用于标志用户是否扫描
     protected $tid = 1;
@@ -16,10 +18,9 @@ class wechatBot
     protected $redirectUrl;
     protected $hostUrl;
     protected $loginSuccessCoreKey = [];
+    protected $cookie;
     //用于初始化以及获取信息的参数
     protected $baseRequest = [];
-    
-	//初始化之后获得的信息
 	protected $baseInfo;
 
     /**
@@ -43,7 +44,6 @@ class wechatBot
     	self::webWeixinInit();
     	//获取用户常用联系人信息
     	self::webWeixinGetContact();
-
     }
     /**
      * 获取uuid
@@ -85,9 +85,10 @@ class wechatBot
      	} else if ($code == '200') {
      		preg_match('/window.redirect_uri=\"(\S*)\"/',$result,$matches);
             $this->redirectUrl = $matches['1'];
-            $this->hostUrl = parse_url($this->redirectUrl, PHP_URL_HOST);
-            echo "<br>";
-            echo "登录成功，正在进行下一步,请稍后：";
+            $this->hostUrl = parse_url($this->redirectUrl, PHP_URL_HOST);       
+            echo "<br>登录成功，正在获取关键信息……";
+            ob_flush();
+    		flush();
         }else if ($code == '408') {
            break;
         }
@@ -97,15 +98,25 @@ class wechatBot
      *	连获取连接成功后关键的信息
      */
     public function getCoreKey() {
-    	$result = self::curlRequest($this->redirectUrl);
-    	
-    	$xml = simplexml_load_string($result);
+    	$result = self::curlRequest($this->redirectUrl, false, [], 60, 1);
+    	preg_match_all('/^Set-Cookie:\s*([^;]*)/mi', $result, $matches);
+		$cookies = array();
+		foreach($matches[1] as $item) {
+    		parse_str($item, $cookie);
+    		$cookies = array_merge($cookies, $cookie);
+		}
+		$this->cookie = $cookies;
+
+		preg_match('/\<error\>\S*\<\/error\>/', $result, $match);
+    	$xml = simplexml_load_string($match[0]);
     	$arr = [];
     	foreach ($xml as $key => $value) {
     		$arr[$key] = (string)$value;
     	}
     	$this->loginSuccessCoreKey = $arr;
-    	//print_r($this->loginSuccessCoreKey);
+    	echo "<br>关键信息已获取，正在进行初始化……";
+    	ob_flush();
+    	flush();
     }
     //初始化信息
     public function webWeixinInit() {
@@ -120,34 +131,37 @@ class wechatBot
 
     	$params = array('BaseRequest' => $this->baseRequest);
     	$params = json_encode($params);
-    	while (@!$this->baseInfo->SKey) {
-    		$result = self::curlRequest($url, true, $params);
-    		$this->baseInfo = json_decode($result);
-    		foreach ($this->baseInfo as $key => $value) {
-    			echo "<br>$key";
-    		}
-    		echo "<br>";
-    		var_dump($this->baseInfo->SKey);
-    	}
+    	//todo 这里会出现获取不到信息的情况，尚不明白具体原因，但影响不大
+    	$result = self::curlRequest($url, true, $params);
+    	$this->baseInfo = json_decode($result);
 
     	echo "<br>";
-    	echo "webWeixin初始化成功！获取信息中……";
+    	echo "初始化成功！获取信息中……";
+    	ob_flush();
+    	flush();
     }
-    //获取常用联系人信息
+    /**
+     *	获取常用联系人信息
+     *  todo 同样会出现获取信息失败的情况，尚不清楚具体原因
+     */
     public function webWeixinGetContact() {
     	
     	$url = "https://$this->hostUrl/cgi-bin/mmwebwx-bin/webwxgetcontact?pass_ticket=".$this->loginSuccessCoreKey['pass_ticket'] . "&r=1467445194420&seq=0&skey=" . (string)$this->baseInfo->SKey;
 
-    	echo "<br>" .$url;
-    	$result = self::curlRequest($url);
+    	$cookie_str = '';
+    	foreach ($this->cookie as $key => $value) {
+    		$cookie_str .= $key . "=" . $value . ';';
+    	}
+    	$result = self::curlRequest($url, false, [], 300, 0, $cookie_str);
     	$result = json_decode($result);
-    	echo "<br>";
-    	print_r($result->BaseResponse);
+    	echo "<br>常用联系人信息以获取";
+
+    	print_r($result);
     }
     /*
     * curl获取网页请求
     */
-    public function curlRequest($url, $isPost = false, $params = array(), $timeOut = 60) {
+    public function curlRequest($url, $isPost = false, $params = array(), $timeOut = 60, $header = 0, $cookie = false) {
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
         if ($isPost) {
@@ -155,21 +169,18 @@ class wechatBot
             curl_setopt($ch, CURLOPT_POSTFIELDS, $params);
         }
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($ch, CURLOPT_HEADER, 0);
+        curl_setopt($ch, CURLOPT_HEADER, $header);
         //curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
         curl_setopt($ch, CURLOPT_TIMEOUT, $timeOut);
+        if ($cookie) {
+        	curl_setopt($ch, CURLOPT_COOKIE, $cookie);
+        }
         print_r(curl_error ($ch));
         $result = curl_exec($ch);
         curl_close($ch);
 
         return $result;
     }
-    //利用time生成13位长度的数字
-    public function getR() {
-    	return time();
-    }
-    public function getLR() {
-    	return time().'128';
-    }
+
 }
