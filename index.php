@@ -21,8 +21,10 @@ class wechatBot
     protected $cookie;
     //用于初始化以及获取信息的参数
     protected $baseRequest = [];
-	protected $baseInfo;
-
+	protected $baseInfo; //BaseResponse Count ContactList SyncKey User ChatSet SKey ClientVersion SystemTime GrayScale InviteStartCount MPSubscribeMsgCount MPSubscribeMsgList ClickReportInterval
+	protected $deviceID = 'e159973572418266';
+	//保存webWeixinGetContact获取到的用户信息
+	protected $webWeixinGetContact;
     /**
      * 	主体代码
      */
@@ -44,6 +46,8 @@ class wechatBot
     	self::webWeixinInit();
     	//获取用户常用联系人信息
     	self::webWeixinGetContact();
+    	//获取群组信息
+    	self::webWeixinBatchGetContent();
     }
     /**
      * 获取uuid
@@ -126,19 +130,23 @@ class wechatBot
 		$this->baseRequest['Uin'] = $this->loginSuccessCoreKey['wxuin'];
 		$this->baseRequest['Sid'] = $this->loginSuccessCoreKey['wxsid'];
     	$this->baseRequest['Skey'] = $this->loginSuccessCoreKey['skey'];
-    	$this->baseRequest['DeviceID'] = 'e159973572418266';
+    	$this->baseRequest['DeviceID'] = $this->deviceID;
 
 
     	$params = array('BaseRequest' => $this->baseRequest);
     	$params = json_encode($params);
     	//todo 这里会出现获取不到信息的情况，尚不明白具体原因，但影响不大
     	$result = self::curlRequest($url, true, $params);
-    	$this->baseInfo = json_decode($result);
-
-    	echo "<br>";
-    	echo "初始化成功！获取信息中……";
-    	ob_flush();
-    	flush();
+    	$result = json_decode($result);
+    	if (!$result->BaseResponse->Ret) {
+    		$this->baseInfo = $result;
+    		print_r($this->baseInfo);
+	    	echo "<br>初始化成功！获取信息中……";
+	    	ob_flush();
+	    	flush();
+	    } else {
+	    	self::wrongResponse("初始化失败，五秒后页面即将刷新，请重新扫码登录！");
+	    }
     }
     /**
      *	获取常用联系人信息
@@ -152,12 +160,24 @@ class wechatBot
     	foreach ($this->cookie as $key => $value) {
     		$cookie_str .= $key . "=" . $value . ';';
     	}
-    	$result = self::curlRequest($url, false, [], 300, 0, $cookie_str);
-    	$result = json_decode($result);
-    	echo "<br>常用联系人信息以获取";
+    	$result = self::curlRequest($url, false, [], 5, 0, $cookie_str);
+    	$result = json_decode($result); //BaseResponse MemberCount MemberList Seq
+    	if (!$result->BaseResponse->Ret) {
+    		$this->webWeixinGetContact = $result;
+    		echo "<br>常用联系人信息获取成功";
+    	} else {
+	    	self::wrongResponse("常用联系人信息获取失败，页面将在五秒后刷新，请重新扫码登录！");
+    	}
 
-    	print_r($result);
+
     }
+    /**
+     * 获取用户信息？ 
+     */
+   	public function webWeixinBatchGetContent() {
+   		$url = "https://$this->hostUrl/cgi-bin/mmwebwx-bin/webwxbatchgetcontact?type=ex&r=1453373586582&pass_ticket=" . $this->loginSuccessCoreKey['pass_ticket'];
+   
+   	}
     /*
     * curl获取网页请求
     */
@@ -183,4 +203,20 @@ class wechatBot
         return $result;
     }
 
+    /**
+     * 获取当前网址
+     */
+    public function getServiceUrl() {
+    	$url = 'http://'.$_SERVER['HTTP_HOST'].$_SERVER['REQUEST_URI'];
+    	return $url;
+    }
+    /**
+     * 必要过程失败处理函数
+     */
+    public function wrongResponse($data) {
+	    echo "<br>" . $data;
+	    ob_flush();
+	    flush();
+	    echo "<script> location.href='".self::getServiceUrl()."';</script>"; 
+    }
 }
