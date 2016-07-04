@@ -25,6 +25,8 @@ class wechatBot
 	protected $deviceID = 'e159973572418266';
 	//保存webWeixinGetContact获取到的用户信息
 	protected $webWeixinGetContact;
+    //保存用户消息连接所用到的具体参数
+    protected $webWeixinSync;
 
     /**
      * 	主体代码(仅仅供测试使用，具体的业务流程再行规划)
@@ -196,6 +198,10 @@ class wechatBot
    		print_r($result); 
    
    	}
+
+
+
+    
     /**
      * 获取用户头像
      * @param $username 微信对的用户的标示id
@@ -214,6 +220,7 @@ class wechatBot
         $url = "https://$this->hostUrl/cgi-bin/mmwebwx-bin/webwxgetheadimg?seq=".time()."&username=".$username"&skey=" (string)$this->baseInfo->SKey;
         return $url;
     }
+
     /*
     * curl获取网页请求
     */
