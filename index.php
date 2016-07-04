@@ -25,8 +25,9 @@ class wechatBot
 	protected $deviceID = 'e159973572418266';
 	//保存webWeixinGetContact获取到的用户信息
 	protected $webWeixinGetContact;
+
     /**
-     * 	主体代码
+     * 	主体代码(仅仅供测试使用，具体的业务流程再行规划)
      */
     public function run() {
     	echo "微信网页自定义登陆程序<br>";
@@ -45,9 +46,9 @@ class wechatBot
     	//网页微信初始化
     	self::webWeixinInit();
     	//获取用户常用联系人信息
-    	self::webWeixinGetContact();
-    	//获取群组信息
-    	self::webWeixinBatchGetContent();
+    	// self::webWeixinGetContact();
+        //获取群组详细信息
+        self::webWeixinBatchGetContent();
     }
     /**
      * 获取uuid
@@ -140,7 +141,7 @@ class wechatBot
     	$result = json_decode($result);
     	if (!$result->BaseResponse->Ret) {
     		$this->baseInfo = $result;
-    		print_r($this->baseInfo);
+    		$this->baseRequest['skey'] = $this->baseInfo->SKey;
 	    	echo "<br>初始化成功！获取信息中……";
 	    	ob_flush();
 	    	flush();
@@ -153,13 +154,10 @@ class wechatBot
      *  todo 同样会出现获取信息失败的情况，尚不清楚具体原因
      */
     public function webWeixinGetContact() {
-    	
+    	sleep(1);
     	$url = "https://$this->hostUrl/cgi-bin/mmwebwx-bin/webwxgetcontact?pass_ticket=".$this->loginSuccessCoreKey['pass_ticket'] . "&r=1467445194420&seq=0&skey=" . (string)$this->baseInfo->SKey;
 
-    	$cookie_str = '';
-    	foreach ($this->cookie as $key => $value) {
-    		$cookie_str .= $key . "=" . $value . ';';
-    	}
+    	$cookie_str = self::changeCookieToStr();
     	$result = self::curlRequest($url, false, [], 5, 0, $cookie_str);
     	$result = json_decode($result); //BaseResponse MemberCount MemberList Seq
     	if (!$result->BaseResponse->Ret) {
@@ -172,12 +170,50 @@ class wechatBot
 
     }
     /**
-     * 获取用户信息？ 
+     * 获取用户信息(功能实现，根据具体应用在修改)
      */
    	public function webWeixinBatchGetContent() {
    		$url = "https://$this->hostUrl/cgi-bin/mmwebwx-bin/webwxbatchgetcontact?type=ex&r=1453373586582&pass_ticket=" . $this->loginSuccessCoreKey['pass_ticket'];
+
+        $list = [];
+        foreach ($this->baseInfo->ContactList as $value) {
+            $list[] = array(
+                'EncryChatRoomId' => '',
+                'UserName'   => $value->UserName
+            );
+        }
+   		$params = array(
+   			'BaseRequest' => $this->baseRequest,
+   			'Count' => count($list),
+   			'List'  => $list
+   			);
+   		$params = json_encode($params);
+   		$cookie_str = self::changeCookieToStr();
+
+   		$result = self::curlRequest($url, true, $params);
+   		$result = json_decode($result);
+   		echo "Now";
+   		print_r($result); 
    
    	}
+    /**
+     * 获取用户头像
+     * @param $username 微信对的用户的标示id
+     * @return  $headImaUrl 用户头像的连接
+     */
+    public function getIcon($username) {
+        $url = "https://$this->hostUrl/cgi-bin/mmwebwx-bin/webwxgeticon?seq=".time()."&username=".$username."&skey=" . (string)$this->baseInfo->SKey;
+        return $url;    
+    }
+    /**
+     * 获取群头像
+     * @param $username 微信群标示id
+     * @return  $headImaUrl 用户头像的连接
+     */
+    public function getHeadImgUrl($username) {
+        $url = "https://$this->hostUrl/cgi-bin/mmwebwx-bin/webwxgetheadimg?seq=".time()."&username=".$username"&skey=" (string)$this->baseInfo->SKey;
+        return $url;
+    }
     /*
     * curl获取网页请求
     */
@@ -218,5 +254,15 @@ class wechatBot
 	    ob_flush();
 	    flush();
 	    echo "<script> location.href='".self::getServiceUrl()."';</script>"; 
+    }
+    /**
+     * 将curl获取的cookie转换为字符串
+     */
+    public function changeCookieToStr() {
+    	$cookie_str = '';
+    	foreach ($this->cookie as $key => $value) {
+    		$cookie_str .= $key . "=" . $value . ';';
+    	}
+    	return $cookie_str;
     }
 }
