@@ -6,7 +6,10 @@
 
 class wechatBot
 {
-
+    //不同的init地址对应不同的消息推送地址
+    protected $service = array(
+        'wx2.qq.com' => 'webpush.wx2.qq.com', 
+    );
 
     public $uuid = false;
     	
@@ -25,8 +28,9 @@ class wechatBot
 	protected $deviceID = 'e159973572418266';
 	//保存webWeixinGetContact获取到的用户信息
 	protected $webWeixinGetContact;
-    //保存用户消息连接所用到的具体参数
-    protected $webWeixinSync;
+    //用于消息接收与发送使用
+    protected $syncKeyStr; 
+    protected $msgPushUrl;
 
     /**
      * 	主体代码(仅仅供测试使用，具体的业务流程再行规划)
@@ -92,7 +96,17 @@ class wechatBot
      	} else if ($code == '200') {
      		preg_match('/window.redirect_uri=\"(\S*)\"/',$result,$matches);
             $this->redirectUrl = $matches['1'];
-            $this->hostUrl = parse_url($this->redirectUrl, PHP_URL_HOST);       
+            $this->hostUrl = parse_url($this->redirectUrl, PHP_URL_HOST); 
+            foreach ($this->service as $key => $value) {
+                if ($key == $this->hostUrl) {
+                    $this->msgPushUrl = $value;
+                    continue;
+                }
+            }      
+            if (empty($this->msgPushUrl)) {
+                echo "很抱歉，未能获取消息推送地址，请联系郭恒<guoheng@qiyi.com>";
+                exit();
+            }
             echo "<br>登录成功，正在获取关键信息……";
             ob_flush();
     		flush();
@@ -144,6 +158,12 @@ class wechatBot
     	if (!$result->BaseResponse->Ret) {
     		$this->baseInfo = $result;
     		$this->baseRequest['skey'] = $this->baseInfo->SKey;
+            //获取synckey并转化为字符串以供后面获取信息    
+            $arr = [];
+            foreach ($this->baseInfo as $key => $value) {
+                $arr[] = $key . "_" . $value;
+            }
+            $this->syncKeyStr = implode('|', $arr);
 	    	echo "<br>初始化成功！获取信息中……";
 	    	ob_flush();
 	    	flush();
@@ -156,7 +176,7 @@ class wechatBot
      *  todo 同样会出现获取信息失败的情况，尚不清楚具体原因
      */
     public function webWeixinGetContact() {
-    	sleep(1);
+    	
     	$url = "https://$this->hostUrl/cgi-bin/mmwebwx-bin/webwxgetcontact?pass_ticket=".$this->loginSuccessCoreKey['pass_ticket'] . "&r=1467445194420&seq=0&skey=" . (string)$this->baseInfo->SKey;
 
     	$cookie_str = self::changeCookieToStr();
@@ -168,7 +188,6 @@ class wechatBot
     	} else {
 	    	self::wrongResponse("常用联系人信息获取失败，页面将在五秒后刷新，请重新扫码登录！");
     	}
-
 
     }
     /**
@@ -199,9 +218,6 @@ class wechatBot
    
    	}
 
-
-
-    
     /**
      * 获取用户头像
      * @param $username 微信对的用户的标示id
@@ -217,9 +233,21 @@ class wechatBot
      * @return  $headImaUrl 用户头像的连接
      */
     public function getHeadImgUrl($username) {
-        $url = "https://$this->hostUrl/cgi-bin/mmwebwx-bin/webwxgetheadimg?seq=".time()."&username=".$username"&skey=" (string)$this->baseInfo->SKey;
+        $url = "https://$this->hostUrl/cgi-bin/mmwebwx-bin/webwxgetheadimg?seq=".time()."&username=".$username."&skey=".(string)$this->baseInfo->SKey;
         return $url;
     }
+
+    /**
+     *  sync长链接用户，用户获得消息通知 
+     *  todo not done
+     */
+    public function syncheck() {
+        $url = "https://$this->msgPushUrl/cgi-bin/mmwebwx-bin/synccheck?r=".time()."206&skey=".$this->baseInfo->Skey."&sid=".$this->baseRequest['Sid']."&uin=".$this->baseRequest['Sid']."&deviceid=".$this->deviceID."&synckey=" . $this->syncKeyStr . "&_=".time()."152";
+
+    }
+
+
+
 
     /*
     * curl获取网页请求
