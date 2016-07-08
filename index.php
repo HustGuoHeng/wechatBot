@@ -243,6 +243,18 @@ class wechatBot
      */
     public function syncheck() {
         $url = "https://$this->msgPushUrl/cgi-bin/mmwebwx-bin/synccheck?r=".time()."206&skey=".$this->baseInfo->Skey."&sid=".$this->baseRequest['Sid']."&uin=".$this->baseRequest['Sid']."&deviceid=".$this->deviceID."&synckey=" . $this->syncKeyStr . "&_=".time()."152";
+        $result = self::curlRequest($url);
+        preg_match('/retcode:"([0-9]*)"/', $result, $matches);
+        $retcode = $matches['1'];
+        preg_match('/selector:"([0-9]*)"/', $result, $matches);
+        $selector = $matches['1'];
+
+        $result = array(
+            'retcode' => $retcode,
+            'selector' => $selector
+        );
+
+        return $result;
 
     }
 
