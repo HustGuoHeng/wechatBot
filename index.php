@@ -8,7 +8,8 @@ class wechatBot
 {
     //不同的init地址对应不同的消息推送地址
     protected $service = array(
-        'wx2.qq.com' => 'webpush.wx2.qq.com', 
+        'wx2.qq.com' 	=> 'webpush.wx2.qq.com', 
+        'wx.qq.com'		=> 'webpush.wx.qq.com'
     );
 
     public $uuid = false;
@@ -21,11 +22,12 @@ class wechatBot
     protected $redirectUrl;
     protected $hostUrl;
     protected $loginSuccessCoreKey = [];
-    protected $cookie;
+    protected $loginSuccessCookie; // 用户获取常用用户列表
     //用于初始化以及获取信息的参数
     protected $baseRequest = [];
 	protected $baseInfo; //BaseResponse Count ContactList SyncKey User ChatSet SKey ClientVersion SystemTime GrayScale InviteStartCount MPSubscribeMsgCount MPSubscribeMsgList ClickReportInterval
 	protected $deviceID = 'e159973572418266';
+	protected $initCookie;
 	//保存webWeixinGetContact获取到的用户信息
 	protected $webWeixinGetContact;
     //用于消息接收与发送使用
@@ -54,7 +56,30 @@ class wechatBot
     	//获取用户常用联系人信息
     	// self::webWeixinGetContact();
         //获取群组详细信息
-        self::webWeixinBatchGetContent();
+        // self::webWeixinBatchGetContent();
+        /**
+         * 简单的接受消息测试
+         * todo 改成携程任务
+		 */
+		// while (true) {
+			print_r(self::synccheck());
+
+
+	    	// $result = self::webWeixinSync();
+	    	// foreach ($result as $key => $value) {
+	    	// 	echo "<br>$key";
+	    	// }
+
+      //       $arr = [];
+      //       foreach ($result->SyncKey->List as $value) {
+      //           $arr[] = $value->Key . "_" . $value->Val;
+      //       }
+      //       $this->syncKeyStr = implode('|', $arr);
+      //       print_r(self::syncheck());
+		// }
+
+        
+ 		
     }
     /**
      * 获取uuid
@@ -104,7 +129,7 @@ class wechatBot
                 }
             }      
             if (empty($this->msgPushUrl)) {
-                echo "很抱歉，未能获取消息推送地址，请联系郭恒<guoheng@qiyi.com>";
+                echo "<br>很抱歉，未能获取消息推送地址，请联系郭恒<guoheng@qiyi.com>";
                 exit();
             }
             echo "<br>登录成功，正在获取关键信息……";
@@ -126,8 +151,7 @@ class wechatBot
     		parse_str($item, $cookie);
     		$cookies = array_merge($cookies, $cookie);
 		}
-		$this->cookie = $cookies;
-
+		$this->loginSuccessCookie = $cookies;
 		preg_match('/\<error\>\S*\<\/error\>/', $result, $match);
     	$xml = simplexml_load_string($match[0]);
     	$arr = [];
@@ -153,15 +177,15 @@ class wechatBot
     	$params = array('BaseRequest' => $this->baseRequest);
     	$params = json_encode($params);
     	//todo 这里会出现获取不到信息的情况，尚不明白具体原因，但影响不大
-    	$result = self::curlRequest($url, true, $params);
+    	$result = self::curlRequest($url, true, $params, 60);
     	$result = json_decode($result);
+
     	if (!$result->BaseResponse->Ret) {
     		$this->baseInfo = $result;
-    		$this->baseRequest['skey'] = $this->baseInfo->SKey;
             //获取synckey并转化为字符串以供后面获取信息    
             $arr = [];
-            foreach ($this->baseInfo as $key => $value) {
-                $arr[] = $key . "_" . $value;
+            foreach ($this->baseInfo->SyncKey->List as $value) {
+                $arr[] = $value->Key . "_" . $value->Val;
             }
             $this->syncKeyStr = implode('|', $arr);
 	    	echo "<br>初始化成功！获取信息中……";
@@ -179,7 +203,7 @@ class wechatBot
     	
     	$url = "https://$this->hostUrl/cgi-bin/mmwebwx-bin/webwxgetcontact?pass_ticket=".$this->loginSuccessCoreKey['pass_ticket'] . "&r=1467445194420&seq=0&skey=" . (string)$this->baseInfo->SKey;
 
-    	$cookie_str = self::changeCookieToStr();
+    	$cookie_str = self::changeCookieToStr($this->loginSuccessCookie);
     	$result = self::curlRequest($url, false, [], 5, 0, $cookie_str);
     	$result = json_decode($result); //BaseResponse MemberCount MemberList Seq
     	if (!$result->BaseResponse->Ret) {
@@ -209,13 +233,14 @@ class wechatBot
    			'List'  => $list
    			);
    		$params = json_encode($params);
-   		$cookie_str = self::changeCookieToStr();
+   		// $cookie_str = self::changeCookieToStr();
 
    		$result = self::curlRequest($url, true, $params);
    		$result = json_decode($result);
-   		echo "Now";
-   		print_r($result); 
-   
+
+   		if ($result) {
+   			echo "<br>群详细信息获取成功";
+   		}
    	}
 
     /**
@@ -241,9 +266,21 @@ class wechatBot
      *  sync长链接用户，用户获得消息通知 
      *  todo not done
      */
-    public function syncheck() {
-        $url = "https://$this->msgPushUrl/cgi-bin/mmwebwx-bin/synccheck?r=".time()."206&skey=".$this->baseInfo->Skey."&sid=".$this->baseRequest['Sid']."&uin=".$this->baseRequest['Sid']."&deviceid=".$this->deviceID."&synckey=" . $this->syncKeyStr . "&_=".time()."152";
-        $result = self::curlRequest($url);
+    public function synccheck() {
+    	$params = array(
+    		'r' 		=> 	"146".time(), 
+    		'skey' 		=> 	$this->baseRequest['Skey'], //
+    		'sid' 		=> 	$this->baseRequest['Sid'],
+    		'uin'		=> 	$this->baseRequest['Uin'],
+    		'deviceid'	=> 	$this->deviceID,
+    		'syncheck'	=> 	$this->syncKeyStr, 
+    		// '_'			=>	"1478070067112"
+    	);
+        $url = "https://$this->msgPushUrl/cgi-bin/mmwebwx-bin/synccheck?" . http_build_query($params);
+
+        $cookie_str = self::changeCookieToStr($this->loginSuccessCookie);
+        print_r($cookie_str);
+        $result = self::curlRequest($url,false,[],300,0, $cookie_str);
         preg_match('/retcode:"([0-9]*)"/', $result, $matches);
         $retcode = $matches['1'];
         preg_match('/selector:"([0-9]*)"/', $result, $matches);
@@ -255,9 +292,23 @@ class wechatBot
         );
 
         return $result;
-
     }
+    /**
+     * 获取聊天信息并更新synckey
+     */
+    public function webWeixinSync() {
+    	$url = "https://$this->hostUrl/cgi-bin/mmwebwx-bin/webwxsync?sid=".$this->baseRequest['Sid']."&skey=".(string)$this->baseInfo->SKey."&pass_ticket=" . $this->loginSuccessCoreKey['pass_ticket'];
+    	//设置post传递的参数
+    	$params = array(
+    		"BaseRequest" 	=> $this->baseRequest,
+    		"SyncKey" 	  	=> $this->baseInfo->SyncKey,
+    		"rr"			=> time(),
+    	);
 
+    	$result = self::curlRequest($url, true, json_encode($params));
+    	$result = json_decode($result);
+    	return $result;
+    }
 
 
 
@@ -305,9 +356,9 @@ class wechatBot
     /**
      * 将curl获取的cookie转换为字符串
      */
-    public function changeCookieToStr() {
+    public function changeCookieToStr($cookie) {
     	$cookie_str = '';
-    	foreach ($this->cookie as $key => $value) {
+    	foreach ($cookie as $key => $value) {
     		$cookie_str .= $key . "=" . $value . ';';
     	}
     	return $cookie_str;
