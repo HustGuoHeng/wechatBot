@@ -1,4 +1,5 @@
 <?php
+    require_once('./lib/wxBase.php');
 	ini_set('max_execution_time', 3000);
 	echo "<pre>";
     $wechatBot = new wechatBot();
@@ -61,22 +62,19 @@ class wechatBot
          * 简单的接受消息测试
          * todo 改成携程任务
 		 */
-		// while (true) {
-			print_r(self::synccheck());
 
-
-	    	// $result = self::webWeixinSync();
-	    	// foreach ($result as $key => $value) {
-	    	// 	echo "<br>$key";
-	    	// }
-
-      //       $arr = [];
-      //       foreach ($result->SyncKey->List as $value) {
-      //           $arr[] = $value->Key . "_" . $value->Val;
-      //       }
-      //       $this->syncKeyStr = implode('|', $arr);
-      //       print_r(self::syncheck());
-		// }
+		while (true) {
+            $res = self::synccheck();
+            if ($res['retcode'] == '0' && $res['selector'] == '0') {
+                continue;
+            } else {
+                $result = self::webWeixinSync();
+                echo "<br>";
+                print_r($result);
+            } 
+            ob_flush();
+            flush();
+		}
 
         
  		
@@ -85,10 +83,10 @@ class wechatBot
      * 获取uuid
      */
     public function getUuid() {
-        $getUuidUrl = "https://login.weixin.qq.com/jslogin?appid=wx782c26e4c19acffb&redirect_uri=https%3A%2F%2Fwx.qq.com%2Fcgi-bin%2Fmmwebwx-bin%2Fwebwxnewloginpage&fun=new&lang=en_US&_=1452859503801";
+        $getUuidUrl = "https://login.weixin.qq.com/jslogin?appid=wx782c26e4c19acffb&redirect_uri=https%3A%2F%2Fwx.qq.com%2Fcgi-bin%2Fmmwebwx-bin%2Fwebwxnewloginpage&fun=new&lang=zh_CN&_=1452859503801";
 
         while (!$this->uuid) {
-	        $result = self::curlRequest($getUuidUrl);
+	        $result = curlRequest($getUuidUrl);
 	        $result = preg_match('/uuid = "([a-zA-Z0-9_]*={2})"/', $result, $matches);
 	        @$uuid =  $matches['1'];
 	        $this->uuid = $uuid;
@@ -107,7 +105,7 @@ class wechatBot
     public function waitForLogin() {
         $now_time = time();
         $url = "https://login.weixin.qq.com/cgi-bin/mmwebwx-bin/login?loginicon=true&uuid=" . $this->uuid . "&tip=" . $this->tid . "&r=" . $now_time . "&_=1452859503803";
-        $result = $this->curlRequest($url, false, array(), 20);
+        $result = curlRequest($url, false, array(), 20);
         preg_match('/window.code=([0-9]*)/',$result,$matches);
         
         @$code = $matches[1];
@@ -144,7 +142,7 @@ class wechatBot
      *	连获取连接成功后关键的信息
      */
     public function getCoreKey() {
-    	$result = self::curlRequest($this->redirectUrl, false, [], 60, 1);
+    	$result = curlRequest($this->redirectUrl, false, [], 60, 1);
     	preg_match_all('/^Set-Cookie:\s*([^;]*)/mi', $result, $matches);
 		$cookies = array();
 		foreach($matches[1] as $item) {
@@ -168,16 +166,17 @@ class wechatBot
 
     	$url = "https://$this->hostUrl/cgi-bin/mmwebwx-bin/webwxinit?pass_ticket=" . $this->loginSuccessCoreKey['pass_ticket'] . "&skey=" . $this->loginSuccessCoreKey['skey'] . "&r=" . time();
 
-		$this->baseRequest['Uin'] = $this->loginSuccessCoreKey['wxuin'];
-		$this->baseRequest['Sid'] = $this->loginSuccessCoreKey['wxsid'];
-    	$this->baseRequest['Skey'] = $this->loginSuccessCoreKey['skey'];
-    	$this->baseRequest['DeviceID'] = $this->deviceID;
-
+        $this->baseRequest = array(
+            'Uin'       =>  $this->loginSuccessCoreKey['wxuin'],
+            'Sid'       =>  $this->loginSuccessCoreKey['wxsid'],
+            'Skey'      =>  $this->loginSuccessCoreKey['skey'],
+            'DeviceID'  =>  $this->deviceID
+        );
 
     	$params = array('BaseRequest' => $this->baseRequest);
     	$params = json_encode($params);
     	//todo 这里会出现获取不到信息的情况，尚不明白具体原因，但影响不大
-    	$result = self::curlRequest($url, true, $params, 60);
+    	$result = curlRequest($url, true, $params, 60);
     	$result = json_decode($result);
 
     	if (!$result->BaseResponse->Ret) {
@@ -192,7 +191,7 @@ class wechatBot
 	    	ob_flush();
 	    	flush();
 	    } else {
-	    	self::wrongResponse("初始化失败，五秒后页面即将刷新，请重新扫码登录！");
+	    	wrongResponse("初始化失败，五秒后页面即将刷新，请重新扫码登录！");
 	    }
     }
     /**
@@ -203,14 +202,14 @@ class wechatBot
     	
     	$url = "https://$this->hostUrl/cgi-bin/mmwebwx-bin/webwxgetcontact?pass_ticket=".$this->loginSuccessCoreKey['pass_ticket'] . "&r=1467445194420&seq=0&skey=" . (string)$this->baseInfo->SKey;
 
-    	$cookie_str = self::changeCookieToStr($this->loginSuccessCookie);
-    	$result = self::curlRequest($url, false, [], 5, 0, $cookie_str);
+    	$cookie_str = changeCookieToStr($this->loginSuccessCookie);
+    	$result = curlRequest($url, false, [], 5, 0, $cookie_str);
     	$result = json_decode($result); //BaseResponse MemberCount MemberList Seq
     	if (!$result->BaseResponse->Ret) {
     		$this->webWeixinGetContact = $result;
     		echo "<br>常用联系人信息获取成功";
     	} else {
-	    	self::wrongResponse("常用联系人信息获取失败，页面将在五秒后刷新，请重新扫码登录！");
+	    	wrongResponse("常用联系人信息获取失败，页面将在五秒后刷新，请重新扫码登录！");
     	}
 
     }
@@ -235,7 +234,7 @@ class wechatBot
    		$params = json_encode($params);
    		// $cookie_str = self::changeCookieToStr();
 
-   		$result = self::curlRequest($url, true, $params);
+   		$result = curlRequest($url, true, $params);
    		$result = json_decode($result);
 
    		if ($result) {
@@ -269,18 +268,17 @@ class wechatBot
     public function synccheck() {
     	$params = array(
     		'r' 		=> 	"146".time(), 
-    		'skey' 		=> 	$this->baseRequest['Skey'], //
     		'sid' 		=> 	$this->baseRequest['Sid'],
     		'uin'		=> 	$this->baseRequest['Uin'],
+            'skey'      =>  $this->baseRequest['Skey'], 
     		'deviceid'	=> 	$this->deviceID,
-    		'syncheck'	=> 	$this->syncKeyStr, 
-    		// '_'			=>	"1478070067112"
+    		'synckey'	=> 	$this->syncKeyStr, 
+    		'_'			=>	"1478070067112"
     	);
         $url = "https://$this->msgPushUrl/cgi-bin/mmwebwx-bin/synccheck?" . http_build_query($params);
 
-        $cookie_str = self::changeCookieToStr($this->loginSuccessCookie);
-        print_r($cookie_str);
-        $result = self::curlRequest($url,false,[],300,0, $cookie_str);
+        $cookie_str = changeCookieToStr($this->loginSuccessCookie);
+        $result = curlRequest($url,false,[],300,0, $cookie_str);
         preg_match('/retcode:"([0-9]*)"/', $result, $matches);
         $retcode = $matches['1'];
         preg_match('/selector:"([0-9]*)"/', $result, $matches);
@@ -297,7 +295,7 @@ class wechatBot
      * 获取聊天信息并更新synckey
      */
     public function webWeixinSync() {
-    	$url = "https://$this->hostUrl/cgi-bin/mmwebwx-bin/webwxsync?sid=".$this->baseRequest['Sid']."&skey=".(string)$this->baseInfo->SKey."&pass_ticket=" . $this->loginSuccessCoreKey['pass_ticket'];
+    	$url = "https://$this->hostUrl/cgi-bin/mmwebwx-bin/webwxsync?sid=".$this->baseRequest['Sid']."&skey=".$this->baseRequest['Skey']."&pass_ticket=" . $this->loginSuccessCoreKey['pass_ticket'];
     	//设置post传递的参数
     	$params = array(
     		"BaseRequest" 	=> $this->baseRequest,
@@ -305,62 +303,14 @@ class wechatBot
     		"rr"			=> time(),
     	);
 
-    	$result = self::curlRequest($url, true, json_encode($params));
+    	$result = curlRequest($url, true, json_encode($params));
     	$result = json_decode($result);
+
+        $arr = [];
+        foreach ($result->SyncKey->List as $value) {
+            $arr[] = $value->Key . "_" . $value->Val;
+        }
+        $this->syncKeyStr = implode('|', $arr);
     	return $result;
-    }
-
-
-
-    /*
-    * curl获取网页请求
-    */
-    public function curlRequest($url, $isPost = false, $params = array(), $timeOut = 60, $header = 0, $cookie = false) {
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $url);
-        if ($isPost) {
-            curl_setopt($ch, CURLOPT_POST, 1);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $params);
-        }
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($ch, CURLOPT_HEADER, $header);
-        //curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-        curl_setopt($ch, CURLOPT_TIMEOUT, $timeOut);
-        if ($cookie) {
-        	curl_setopt($ch, CURLOPT_COOKIE, $cookie);
-        }
-        print_r(curl_error ($ch));
-        $result = curl_exec($ch);
-        curl_close($ch);
-
-        return $result;
-    }
-
-    /**
-     * 获取当前网址
-     */
-    public function getServiceUrl() {
-    	$url = 'http://'.$_SERVER['HTTP_HOST'].$_SERVER['REQUEST_URI'];
-    	return $url;
-    }
-    /**
-     * 必要过程失败处理函数
-     */
-    public function wrongResponse($data) {
-	    echo "<br>" . $data;
-	    ob_flush();
-	    flush();
-	    echo "<script> location.href='".self::getServiceUrl()."';</script>"; 
-    }
-    /**
-     * 将curl获取的cookie转换为字符串
-     */
-    public function changeCookieToStr($cookie) {
-    	$cookie_str = '';
-    	foreach ($cookie as $key => $value) {
-    		$cookie_str .= $key . "=" . $value . ';';
-    	}
-    	return $cookie_str;
     }
 }
