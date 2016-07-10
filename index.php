@@ -35,6 +35,8 @@ class wechatBot
     protected $syncKeyStr; 
     protected $msgPushUrl;
 
+    protected $receivedInfo;//获取的消息
+
     /**
      * 	主体代码(仅仅供测试使用，具体的业务流程再行规划)
      */
@@ -54,6 +56,7 @@ class wechatBot
     	self::getCoreKey();
     	//网页微信初始化
     	self::webWeixinInit();
+
     	//获取用户常用联系人信息
     	// self::webWeixinGetContact();
         //获取群组详细信息
@@ -63,18 +66,34 @@ class wechatBot
          * todo 改成携程任务
 		 */
 
-		while (true) {
-            $res = self::synccheck();
-            if ($res['retcode'] == '0' && $res['selector'] == '0') {
-                continue;
-            } else {
-                $result = self::webWeixinSync();
-                echo "<br>";
-                print_r($result);
-            } 
+		// while (true) {
+  //           $res = self::synccheck();
+  //           if ($res['retcode'] == '0' && $res['selector'] == '0') {
+  //               continue;
+  //           } else {
+  //               self::webWeixinSync();
+  //               echo "<br>";
+  //               print_r(self::getReceivedInfo());
+  //           } 
+  //           ob_flush();
+  //           flush();
+		// }
+        //发送文字消息
+
+        foreach ($this->baseInfo->ContactList as $key => $value) {
+            if ($value->OwnerUin == 734322681 && $value->ContactFlag == 2) {
+            // if ($value->OwnerUin == 0 && $value->ContactFlag == 0) {
+                $toUserName = $value->UserName;
+                echo $toUserName;
+                break;
+            }
+        }
+        for ($i=0; $i < 10; $i++) { 
+            sleep(1);
+            self::sendMsg("刷屏应该不会被封号吧？求不举报".$i."--来自localhost测试消息。", $toUserName);
             ob_flush();
             flush();
-		}
+        }
 
         
  		
@@ -83,6 +102,7 @@ class wechatBot
      * 获取uuid
      */
     public function getUuid() {
+        //这个地址暂时写死不做拼接
         $getUuidUrl = "https://login.weixin.qq.com/jslogin?appid=wx782c26e4c19acffb&redirect_uri=https%3A%2F%2Fwx.qq.com%2Fcgi-bin%2Fmmwebwx-bin%2Fwebwxnewloginpage&fun=new&lang=zh_CN&_=1452859503801";
 
         while (!$this->uuid) {
@@ -104,16 +124,23 @@ class wechatBot
      */
     public function waitForLogin() {
         $now_time = time();
-        $url = "https://login.weixin.qq.com/cgi-bin/mmwebwx-bin/login?loginicon=true&uuid=" . $this->uuid . "&tip=" . $this->tid . "&r=" . $now_time . "&_=1452859503803";
+        $query = array(
+            'loginicon' =>  'true',
+            'uuid'      =>  $this->uuid,
+            'tip'       =>  $this->tid, //todo 尚不清楚这个参数的含义
+            'r'         =>  time(),
+            '_'         =>  '145' . time(),
+        );
+
+        $url = "https://login.weixin.qq.com/cgi-bin/mmwebwx-bin/login?" . urldecode(http_build_query($query));
         $result = curlRequest($url, false, array(), 20);
         preg_match('/window.code=([0-9]*)/',$result,$matches);
         
         @$code = $matches[1];
         if ($code == '201' && !$this->waitForCheck){
-            echo "<br>";
             $this->waitForCheck =  true;
             $this->tid = 0;
-            echo "扫描成功，请在手机确认登录！";
+            echo "<br>扫描成功，请在手机确认登录！";
             ob_flush();
             flush();
      	} else if ($code == '200') {
@@ -157,14 +184,19 @@ class wechatBot
     		$arr[$key] = (string)$value;
     	}
     	$this->loginSuccessCoreKey = $arr;
+   
     	echo "<br>关键信息已获取，正在进行初始化……";
     	ob_flush();
     	flush();
     }
     //初始化信息
     public function webWeixinInit() {
-
-    	$url = "https://$this->hostUrl/cgi-bin/mmwebwx-bin/webwxinit?pass_ticket=" . $this->loginSuccessCoreKey['pass_ticket'] . "&skey=" . $this->loginSuccessCoreKey['skey'] . "&r=" . time();
+        $query = array(
+            'pass_ticket'   =>  $this->loginSuccessCoreKey['pass_ticket'],
+            'skey'          =>  $this->loginSuccessCoreKey['skey'],
+            'r'             =>  time()
+        );
+    	$url = "https://$this->hostUrl/cgi-bin/mmwebwx-bin/webwxinit?" . urldecode(http_build_query($query));
 
         $this->baseRequest = array(
             'Uin'       =>  $this->loginSuccessCoreKey['wxuin'],
@@ -199,8 +231,13 @@ class wechatBot
      *  todo 同样会出现获取信息失败的情况，尚不清楚具体原因
      */
     public function webWeixinGetContact() {
-    	
-    	$url = "https://$this->hostUrl/cgi-bin/mmwebwx-bin/webwxgetcontact?pass_ticket=".$this->loginSuccessCoreKey['pass_ticket'] . "&r=1467445194420&seq=0&skey=" . (string)$this->baseInfo->SKey;
+    	$query = array(
+            'pass_ticket'   => $this->loginSuccessCoreKey['pass_ticket'],
+            'r'             => '146' . time(),
+            'seq'           => '0',
+            'skey'          => (string)$this->baseInfo->SKey
+        );
+    	$url = "https://$this->hostUrl/cgi-bin/mmwebwx-bin/webwxgetcontact?" .  urldecode(http_build_query($query));
 
     	$cookie_str = changeCookieToStr($this->loginSuccessCookie);
     	$result = curlRequest($url, false, [], 5, 0, $cookie_str);
@@ -217,7 +254,12 @@ class wechatBot
      * 获取用户信息(功能实现，根据具体应用在修改)
      */
    	public function webWeixinBatchGetContent() {
-   		$url = "https://$this->hostUrl/cgi-bin/mmwebwx-bin/webwxbatchgetcontact?type=ex&r=1453373586582&pass_ticket=" . $this->loginSuccessCoreKey['pass_ticket'];
+        $query = array(
+            'type'          => 'ex',
+            'r'             => '146' . time(),
+            'pass_ticket'   => $this->loginSuccessCoreKey['pass_ticket'],
+        );
+   		$url = "https://$this->hostUrl/cgi-bin/mmwebwx-bin/webwxbatchgetcontact?" . urldecode(http_build_query($query));
 
         $list = [];
         foreach ($this->baseInfo->ContactList as $value) {
@@ -263,19 +305,18 @@ class wechatBot
 
     /**
      *  sync长链接用户，用户获得消息通知 
-     *  todo not done
      */
     public function synccheck() {
-    	$params = array(
-    		'r' 		=> 	"146".time(), 
+    	$query = array(
+    		'r' 		=> 	time() . '000', 
     		'sid' 		=> 	$this->baseRequest['Sid'],
     		'uin'		=> 	$this->baseRequest['Uin'],
             'skey'      =>  $this->baseRequest['Skey'], 
     		'deviceid'	=> 	$this->deviceID,
     		'synckey'	=> 	$this->syncKeyStr, 
-    		'_'			=>	"1478070067112"
+    		'_'			=>	time(). '001'
     	);
-        $url = "https://$this->msgPushUrl/cgi-bin/mmwebwx-bin/synccheck?" . http_build_query($params);
+        $url = "https://$this->msgPushUrl/cgi-bin/mmwebwx-bin/synccheck?" . http_build_query($query);
 
         $cookie_str = changeCookieToStr($this->loginSuccessCookie);
         $result = curlRequest($url,false,[],300,0, $cookie_str);
@@ -295,7 +336,12 @@ class wechatBot
      * 获取聊天信息并更新synckey
      */
     public function webWeixinSync() {
-    	$url = "https://$this->hostUrl/cgi-bin/mmwebwx-bin/webwxsync?sid=".$this->baseRequest['Sid']."&skey=".$this->baseRequest['Skey']."&pass_ticket=" . $this->loginSuccessCoreKey['pass_ticket'];
+        $query  = array(
+            'sid'           =>  $this->baseRequest['Sid'],
+            'skey'          =>  $this->baseRequest['Skey'],
+            'pass_ticket'   =>  $this->loginSuccessCoreKey['pass_ticket'],
+        );
+    	$url = "https://$this->hostUrl/cgi-bin/mmwebwx-bin/webwxsync?" . urldecode(http_build_query($query));
     	//设置post传递的参数
     	$params = array(
     		"BaseRequest" 	=> $this->baseRequest,
@@ -306,11 +352,43 @@ class wechatBot
     	$result = curlRequest($url, true, json_encode($params));
     	$result = json_decode($result);
 
-        $arr = [];
-        foreach ($result->SyncKey->List as $value) {
-            $arr[] = $value->Key . "_" . $value->Val;
-        }
-        $this->syncKeyStr = implode('|', $arr);
-    	return $result;
+        $this->syncKeyStr = changeSynckeyToStr($result->SyncKey->List);
+    	$this->receivedInfo = $result;
+    }
+    //发送消息
+    //目前仅仅支持文字格式，后续会支持图片格式
+    public function sendMsg($msg,$toUserName = 'filehelper') {
+        $query = array(
+            'lang'          =>  'zh_CN',
+            'pass_ticket'   =>  $this->loginSuccessCoreKey['pass_ticket'],
+        );
+        $url = "https://$this->hostUrl/cgi-bin/mmwebwx-bin/webwxsendmsg?" . urldecode(http_build_query($query));
+
+        $time_stmp = time() . '0000' . substr(rand(0,999)/1000 . "000", 2, 3);
+
+        $params = array(
+            'BaseRequest'   =>  $this->baseRequest,
+            'Msg'           =>  array(
+                                    'Type'          =>  1,
+                                    'Content'       =>  "_SENDMSG_",
+                                    'FromUserName'  =>  $this->baseInfo->User->UserName,
+                                    'ToUserName'    =>  $toUserName,
+                                    'LocalID'       =>  $time_stmp,
+                                    'ClientMsgId'   =>  $time_stmp
+                                ),
+            "Scene"         => '0'
+          
+        );
+        $params = json_encode($params);
+        $params = preg_replace('/_SENDMSG_/', $msg, $params);
+        $result = curlRequest($url, true, $params);
+        $result = json_decode($result);
+        print_r($result);
+    }
+
+
+    //获取返回的信息
+    public function getReceivedInfo() {
+        return $this->receivedInfo;
     }
 }

@@ -50,3 +50,12 @@ function getServiceUrl() {
     $url = 'http://'.$_SERVER['HTTP_HOST'].$_SERVER['REQUEST_URI'];
     return $url;
 }
+//将synckey转换为微信要求的字符串
+
+function changeSynckeyToStr($list) {
+	$arr = [];
+	foreach ($list as $value) {
+		$arr[] = $value->Key . "_" . $value->Val;
+	}
+	return implode('|', $arr);
+}
