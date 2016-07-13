@@ -25,8 +25,7 @@ class wechatBot
     protected $baseRequest = [];
 	public    $baseInfo; //BaseResponse Count ContactList SyncKey User ChatSet SKey ClientVersion SystemTime GrayScale InviteStartCount MPSubscribeMsgCount MPSubscribeMsgList ClickReportInterval
 	protected $deviceID = 'e159973572418266';
-	protected $initCookie;
-	//保存webWeixinGetContact获取到的用户信息
+
 
     //用于消息接收与发送使用
     protected $syncKeyStr; 
@@ -36,7 +35,7 @@ class wechatBot
     /**
      * 	主体代码(仅仅供测试使用，具体的业务流程再行规划)
      */
-    public function run() {
+    private function run() {
     	echo "微信网页自定义登陆程序<br>";
     	self::getUuid(); // 获取$uuid
     	//获取二维码
@@ -242,7 +241,7 @@ class wechatBot
     	$result = curlRequest($url, false, [], 5, 0, $cookie_str);
     	$result = json_decode($result); //BaseResponse MemberCount MemberList Seq
     	if (!$result->BaseResponse->Ret) {
-    		$this->webWeixinGetContact = $result;
+    		return $result;
     		echo "<br>常用联系人信息获取成功";
     	} else {
 	    	wrongResponse("常用联系人信息获取失败，页面将在五秒后刷新，请重新扫码登录！");
@@ -387,8 +386,4 @@ class wechatBot
     }
 
 
-    //获取返回的信息
-    public function getReceivedInfo() {
-        return $this->receivedInfo;
-    }
 }

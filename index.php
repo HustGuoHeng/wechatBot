@@ -22,26 +22,40 @@ $wechatBot->getCoreKey();
 //网页微信初始化
 $wechatBot->webWeixinInit();
 //获取用户常用联系人信息
-$wechatBot->webWeixinGetContact();
+$contactInfo = $wechatBot->webWeixinGetContact();
 //获取群组详细信息
 $batchInfo = $wechatBot->webWeixinBatchGetContent();
+		while (true) {
+            $res = $wechatBot->synccheck();
+            if ($res['retcode'] == '0' && $res['selector'] == '0') {
+                continue;
+            } else {
+            	$a = $wechatBot->webWeixinSync();
+            	
+                print_r($a->AddMsgList);
 
-//获取目标群消息
-foreach ($batchInfo->ContactList as $value) {
-    if ($value->OwnerUin == 734322681 && $value->ContactFlag == 2) {
-        $aimChat['user_name'] = $value->UserName;
-        foreach ($value->MemberList as $val) {
-        	$aimChat['member_info'][$val->UserName] = $val->NickName;
-        }
-        break;
-    }
-}
+            } 
+            ob_flush();
+            flush();
+		}
+// print_r($contactInfo);die();
+// //获取目标群消息
+// foreach ($batchInfo->ContactList as $value) {
+//     if ($value->OwnerUin == 734322681 && $value->ContactFlag == 2) {
+//         $aimChat['user_name'] = $value->UserName;
+//         foreach ($value->MemberList as $val) {
+//         	$aimChat['member_info'][$val->UserName] = $val->NickName;
+//         }
+//         break;
+//     }
+// }
 
 
 
 $myName = $wechatBot->baseInfo->User->UserName;
-$receiveInfo = null;
 
+
+// function dealWithRececivedInfo($receiveInfo)
 // $is_send_ch_msg = false;
 // $is_much_info = false;
 // while (true) {
@@ -66,15 +80,15 @@ $receiveInfo = null;
 //     } 
 
 // }
-        foreach ($wechatBot->baseInfo->ContactList as $key => $value) {
-            if ($value->OwnerUin == 734322681 && $value->ContactFlag == 2) {
-            // if ($value->OwnerUin == 0 && $value->ContactFlag == 0) {
-                $toUserName = $value->UserName;
-                break;
-            }
-        }
-        for ($i=0; $i < 5; $i++) { 
-            $wechatBot->sendMsg("感觉无爱！", $toUserName);
-            ob_flush();
-            flush();
-        }
+        // foreach ($wechatBot->baseInfo->ContactList as $key => $value) {
+        //     if ($value->OwnerUin == 734322681 && $value->ContactFlag == 2) {
+        //     // if ($value->OwnerUin == 0 && $value->ContactFlag == 0) {
+        //         $toUserName = $value->UserName;
+        //         break;
+        //     }
+        // }
+        // for ($i=0; $i < 5; $i++) { 
+        //     $wechatBot->sendMsg("感觉无爱！", $toUserName);
+        //     ob_flush();
+        //     flush();
+        // }
