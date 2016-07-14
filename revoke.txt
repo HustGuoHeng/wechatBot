@@ -1,0 +1,51 @@
+[13] => stdClass Object
+        (
+            [MsgId] => 2089670332838801524
+            [FromUserName] => @@b4b825d82dc4d8e2d8b284315051b8e53566d146467ce4e62210c3de94eff0cc
+            [ToUserName] => @e947c1f1cc6bca3ac8d7e123948afe0a454fda08e10a58e68efac2b1b0369575
+            [MsgType] => 10002
+            [Content] => <sysmsg type="revokemsg"><revokemsg><session>2687305553@chatroom</session><oldmsgid>1640143869</oldmsgid><msgid>5879283915952983786</msgid><replacemsg><![CDATA[你撤回了一条消息]]></replacemsg></revokemsg></sysmsg>
+            [Status] => 4
+            [ImgStatus] => 1
+            [CreateTime] => 1468401487
+            [VoiceLength] => 0
+            [PlayLength] => 0
+            [FileName] => 
+            [FileSize] => 
+            [MediaId] => 
+            [Url] => 
+            [AppMsgType] => 0
+            [StatusNotifyCode] => 0
+            [StatusNotifyUserName] => 
+            [RecommendInfo] => stdClass Object
+                (
+                    [UserName] => 
+                    [NickName] => 
+                    [QQNum] => 0
+                    [Province] => 
+                    [City] => 
+                    [Content] => 
+                    [Signature] => 
+                    [Alias] => 
+                    [Scene] => 0
+                    [VerifyFlag] => 0
+                    [AttrStatus] => 0
+                    [Sex] => 0
+                    [Ticket] => 
+                    [OpCode] => 0
+                )
+
+            [ForwardFlag] => 0
+            [AppInfo] => stdClass Object
+                (
+                    [AppID] => 
+                    [Type] => 0
+                )
+
+            [HasProductId] => 0
+            [Ticket] => 
+            [ImgHeight] => 0
+            [ImgWidth] => 0
+            [SubMsgType] => 0
+            [NewMsgId] => 2.0896703328388E+18
+        )
